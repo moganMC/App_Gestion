@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12263A">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Mon Budget</title>
+<style>
+:root{--ink:#12263A;--paper:#F3F5F7;--card:#fff;--line:#DDE3E9;--mut:#5B6B7A;--ok:#0F766E;--bad:#B4332B;--tint:#E3F2EF;box-sizing:border-box}
+@media(prefers-color-scheme:dark){:root{--ink:#0B1824;--paper:#101C28;--card:#17283A;--line:#26394D;--mut:#93A4B5;--ok:#5EEAD4;--bad:#FCA5A5;--tint:#173B3A;color-scheme:dark}body{color:#E8EEF3}}
+*{box-sizing:inherit;margin:0}
+html,body{height:100%}
+body{font:16px/1.4 ui-rounded,system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--paper);color:var(--ink);font-variant-numeric:tabular-nums;padding-top:env(safe-area-inset-top)}
+#app{max-width:560px;margin:auto;padding:12px 14px calc(150px + env(safe-area-inset-bottom))}
+.nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.nav b{font-size:1.1rem;text-transform:capitalize}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+.nav button{font-size:1.5rem;width:44px;height:44px;border-radius:50%;background:var(--card)}
+.hero{background:var(--ink);color:#fff;border-radius:18px;padding:18px}
+.hero small{opacity:.75;display:block}
+.hero .big{font-size:2.4rem;font-weight:700;line-height:1.1;margin:2px 0 12px}
+.hero .big.neg{color:#FCA5A5}
+.hero .rav{display:flex;justify-content:space-between;border-top:1px solid #ffffff33;padding-top:10px}
+.hero .rav b{font-size:1.25rem}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0 18px}
+.stats div{background:var(--card);border-radius:12px;padding:10px}
+.stats small{color:var(--mut);display:block;font-size:.75rem}
+h2{font-size:1rem;margin:16px 0 8px}
+.bar{background:var(--card);border-radius:12px;padding:10px 12px;margin-bottom:6px}
+.bar div{display:flex;justify-content:space-between;gap:8px}
+.bar i{display:block;height:6px;border-radius:3px;margin-top:6px}
+.r{display:flex;align-items:center;gap:12px;background:var(--card);border-radius:12px;padding:12px;margin-bottom:6px}
+.r .m{flex:1;min-width:0}
+.r small{display:block;color:var(--mut)}
+.r.ok{background:var(--tint)}
+.r.ok .m b{text-decoration:line-through;text-decoration-thickness:1px}
+.r input{width:26px;height:26px;accent-color:var(--ok);flex:none}
+.empty{color:var(--mut);padding:24px 8px;text-align:center}
+.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom)}
+.tabs button{flex:1;padding:12px 0;font-size:.8rem;color:var(--mut)}
+.tabs button.on{color:var(--ok);font-weight:700;box-shadow:inset 0 3px var(--ok)}
+.fab{position:fixed;right:18px;bottom:calc(70px + env(safe-area-inset-bottom));background:var(--ok);color:#fff;width:58px;height:58px;border-radius:50%;font-size:2rem;box-shadow:0 4px 14px #0004}
+@media(prefers-color-scheme:dark){.fab{color:#0B1824}}
+dialog{border:0;border-radius:18px;padding:18px;width:min(92vw,480px);background:var(--card);color:inherit}
+dialog::backdrop{background:#0008}
+label{display:block;font-size:.85rem;color:var(--mut);margin:10px 0 4px}
+input[type=text],input[type=number],input[type=date],select,textarea{width:100%;font:inherit;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:inherit}
+textarea{min-height:110px}
+.row2{display:flex;gap:8px;margin-top:16px}
+.row2 button{flex:1;padding:12px;border-radius:12px;background:var(--paper)}
+.row2 .pri{background:var(--ok);color:#fff;font-weight:700}
+.row2 .del{color:var(--bad)}
+.err{color:var(--bad);min-height:1.2em;margin-top:8px}
+.chk{display:flex;gap:8px;align-items:center;margin-top:12px}
+.chk input{width:22px;height:22px;accent-color:var(--ok)}
+:focus-visible{outline:3px solid var(--ok);outline-offset:2px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<button class="fab" id="fab" aria-label="Ajouter" onclick="edit()">+</button>
+<nav class="tabs" id="tabs"></nav>
+<dialog id="d"></dialog>
+<script>
+const K='budget.v1',COL=['#0F766E','#1D4E89','#B45309','#6D28D9','#BE123C','#4D7C0F','#0E7490','#9A3412'];
+const DEF={items:[],paid:{},cfg:{
+inc:['Salaire','Prime','Aides','Autre'],
+fix:['Loyer','Crédit auto','Énergie','Eau','Internet','Mobile: FREE, ORANGE','Assurances: MAAF, MATMUT','Abonnements: CANAL+, NVIDIA','Banque: BPCE, Cotisation Confort','Remboursement: Action Log'],
+oth:['Cantine-garderie','Courses','Carburant','Loisirs','Autre'],
+banks:['BPO','Monabanq']}};
+let S;try{S=JSON.parse(localStorage.getItem(K))}catch(x){}
+S=S||JSON.parse(JSON.stringify(DEF));
+const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(x){}};
+const e=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const eur=n=>n.toLocaleString('fr-FR',{style:'currency',currency:'EUR'});
+const ym=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+const today=()=>{const d=new Date();return ym(d)+'-'+String(d.getDate()).padStart(2,'0')};
+let M=ym(new Date()),T='home';
+const TABS={home:'Accueil',inc:'Revenus',fix:'Charges fixes',oth:'Dépenses',set:'Réglages'};
+const TITLE={inc:'revenu',fix:'charge fixe',oth:'dépense'};
+const parse=l=>{const [n,s='']=l.split(':');return{n:n.trim(),s:s.split(',').map(x=>x.trim()).filter(Boolean)}};
+const types=k=>S.cfg[k].map(parse).filter(t=>t.n);
+const monthLabel=()=>{const [y,m]=M.split('-');return new Date(y,m-1,1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'})};
+const shift=d=>{const [y,m]=M.split('-').map(Number);M=ym(new Date(y,m-1+d,1));render()};
+const on=i=>(i.k=='fix'||(i.k=='inc'&&i.rec))?M>=i.from:i.date.slice(0,7)==M;
+const list=k=>S.items.filter(i=>i.k==k&&on(i)).sort((a,b)=>k=='fix'?a.day-b.day:(k=='inc'?+a.date.slice(8)-+b.date.slice(8):b.date.localeCompare(a.date)));
+const sum=a=>a.reduce((t,i)=>t+i.amt,0);
+const isPaid=i=>!!S.paid[M+i.id];
+function tg(id){const k=M+id;if(S.paid[k])delete S.paid[k];else S.paid[k]=1;save();render()}
+
+function row(i){
+  const f=i.k=='fix',p=f&&isPaid(i);
+  const when=f?'le '+i.day+' du mois':(i.k=='inc'&&i.rec?'le '+i.date.slice(8)+' du mois':i.date.slice(8)+'/'+i.date.slice(5,7));
+  return `<div class="r${p?' ok':''}" onclick="edit('${i.k}','${i.id}')">${f?`<input type="checkbox" ${p?'checked':''} aria-label="Prélevé" onclick="event.stopPropagation();tg('${i.id}')">`:''}
+  <div class="m"><b>${e(i.type)}${i.sub?' ('+e(i.sub)+')':''}</b><small>${e(i.label)}</small><small>${e(i.bank)}, ${when}</small></div><span>${eur(i.amt)}</span></div>`;
+}
+
+function home(){
+  const inc=list('inc'),fix=list('fix'),oth=list('oth');
+  const ti=sum(inc),tf=sum(fix),to=sum(oth),pf=sum(fix.filter(isPaid));
+  const solde=ti-pf-to,reste=ti-tf-to;
+  const g={};[...fix,...oth].forEach(i=>g[i.type]=(g[i.type]||0)+i.amt);
+  const rows=Object.entries(g).sort((a,b)=>b[1]-a[1]),tot=tf+to;
+  return `<div class="hero"><small>Solde du mois</small><div class="big${solde<0?' neg':''}">${eur(solde)}</div>
+  <div class="rav"><div><small>Reste à vivre</small><b>${eur(reste)}</b></div><div style="text-align:right"><small>Prélevé sur les charges fixes</small><b>${eur(pf)} / ${eur(tf)}</b></div></div></div>
+  <div class="stats"><div><small>Revenus</small>${eur(ti)}</div><div><small>Charges fixes</small>${eur(tf)}</div><div><small>Autres</small>${eur(to)}</div></div>
+  <h2>Dépenses par type</h2>`+(rows.length?rows.map(([n,v],x)=>`<div class="bar"><div><span>${e(n)}</span><b>${eur(v)}</b></div><i style="width:${Math.max(3,v/tot*100)}%;background:${COL[x%COL.length]}"></i></div>`).join(''):'<div class="empty">Ajoute une charge fixe ou une dépense pour voir la répartition.</div>')+
+  `<p style="color:var(--mut);font-size:.8rem;margin-top:12px">Solde : revenus moins les charges fixes cochées et les autres dépenses. Reste à vivre : revenus moins toutes les charges fixes et les autres dépenses.</p>`;
+}
+
+function listView(k){
+  const a=list(k);
+  const t=sum(a);
+  return `<h2>Total du mois : ${eur(t)}</h2>`+(a.length?a.map(row).join(''):`<div class="empty">Aucun élément ce mois-ci. Appuie sur + pour ajouter.</div>`);
+}
+
+function settings(){
+  const ta=(k,l,h)=>`<label>${l}<br><small>${h}</small></label><textarea oninput="cfg('${k}',this.value)">${e(S.cfg[k].join('\n'))}</textarea>`;
+  return `<h2>Listes (une ligne par choix)</h2>
+  ${ta('banks','Banques','Une banque par ligne')}
+  ${ta('fix','Types de charges fixes','Sous-choix après deux-points : Mobile: FREE, ORANGE')}
+  ${ta('oth','Types d’autres dépenses','Un type par ligne')}
+  ${ta('inc','Types de revenus','Un type par ligne')}
+  <h2>Sauvegarde</h2>
+  <div class="row2" style="margin-top:0"><button onclick="exp()">Exporter</button><button onclick="document.getElementById('f').click()">Importer</button></div>
+  <input type="file" id="f" accept=".json" hidden onchange="imp(this.files[0])">`;
+}
+function cfg(k,v){S.cfg[k]=v.split('\n').map(x=>x.trim()).filter(Boolean);save()}
+function exp(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S)],{type:'application/json'}));a.download='budget-'+today()+'.json';a.click()}
+function imp(f){if(!f)return;f.text().then(t=>{try{const o=JSON.parse(t);if(!o.items||!o.cfg)throw 0;S=o;save();render()}catch(x){alert('Fichier invalide.')}})}
+
+function render(){
+  const nav=T=='set'?'':`<div class="nav"><button onclick="shift(-1)" aria-label="Mois précédent">‹</button><b>${monthLabel()}</b><button onclick="shift(1)" aria-label="Mois suivant">›</button></div>`;
+  document.getElementById('app').innerHTML=nav+(T=='home'?home():T=='set'?settings():listView(T));
+  document.getElementById('tabs').innerHTML=Object.entries(TABS).map(([k,v])=>`<button class="${k==T?'on':''}" onclick="T='${k}';render()">${v}</button>`).join('');
+  document.getElementById('fab').style.display=(T=='set')?'none':'';
+}
+
+const opts=(a,v)=>a.map(x=>`<option${x==v?' selected':''}>${e(x)}</option>`).join('');
+let cur;
+function edit(k,id){
+  k=(k&&TITLE[k])?k:(TITLE[T]?T:'oth');
+  const old=id?S.items.find(i=>i.id==id):null;
+  cur=old||{k,type:'',sub:'',label:'',amt:'',day:1,date:M==ym(new Date())?today():M+'-01',bank:S.cfg.banks[0]||'',rec:k=='inc'};
+  const ts=types(cur.k);if(!cur.type)cur.type=ts[0]?ts[0].n:'';
+  const f=cur.k=='fix';
+  document.getElementById('d').innerHTML=`<b>${old?'Modifier':'Ajouter'} : ${TITLE[cur.k]}</b>
+  <label for="t">Type</label><select id="t" onchange="subs()">${opts(ts.map(t=>t.n),cur.type)}</select>
+  <div id="sw"><label for="s">Détail</label><select id="s"></select></div>
+  <label for="l">Libellé (facultatif)</label><input type="text" id="l" value="${e(cur.label)}">
+  <label for="a">Montant (€)</label><input type="number" id="a" inputmode="decimal" step="0.01" min="0" value="${cur.amt}">
+  ${f?`<label for="j">Jour du prélèvement</label><input type="number" id="j" min="1" max="31" value="${cur.day}">`:`<label for="j">Date</label><input type="date" id="j" value="${cur.date}">`}
+  <label for="b">Banque</label><select id="b">${opts(S.cfg.banks,cur.bank)}</select>
+  ${cur.k=='inc'?`<div class="chk"><input type="checkbox" id="r" ${cur.rec?'checked':''}><label for="r" style="margin:0">Se répète chaque mois</label></div>`:''}
+  <div class="err" id="er"></div>
+  <div class="row2">${old?'<button class="del" onclick="del()">Supprimer</button>':''}<button onclick="d.close()">Annuler</button><button class="pri" onclick="ok()">Enregistrer</button></div>`;
+  subs();document.getElementById('d').showModal();
+}
+function subs(){
+  const t=types(cur.k).find(x=>x.n==document.getElementById('t').value);
+  document.getElementById('sw').style.display=t&&t.s.length?'':'none';
+  document.getElementById('s').innerHTML=t?opts(t.s,cur.sub):'';
+}
+function ok(){
+  const v=id=>document.getElementById(id);
+  const amt=parseFloat(String(v('a').value).replace(',','.'));
+  if(!(amt>0))return v('er').textContent='Saisis un montant supérieur à 0.';
+  if(!v('j').value)return v('er').textContent='Renseigne la date ou le jour.';
+  const t=types(cur.k).find(x=>x.n==v('t').value);
+  Object.assign(cur,{type:v('t').value,sub:t&&t.s.length?v('s').value:'',label:v('l').value.trim(),amt,bank:v('b').value});
+  if(cur.k=='fix'){cur.day=Math.min(31,Math.max(1,+v('j').value||1))}else{cur.date=v('j').value}
+  if(cur.k=='inc')cur.rec=v('r').checked;
+  if(!cur.id){cur.id='i'+Date.now().toString(36);cur.from=cur.k=='fix'?M:cur.date.slice(0,7);S.items.push(cur)}
+  else if(cur.k=='inc')cur.from=cur.date.slice(0,7);
+  save();document.getElementById('d').close();render();
+}
+function del(){
+  if(!confirm('Supprimer cet élément pour tous les mois ?'))return;
+  S.items=S.items.filter(i=>i.id!=cur.id);save();document.getElementById('d').close();render();
+}
+render();
+if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
