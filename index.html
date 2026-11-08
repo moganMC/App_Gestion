@@ -52,7 +52,7 @@ textarea{min-height:110px}
 .row2 button{flex:1;padding:12px;border-radius:12px;background:var(--paper)}
 .row2 .pri{background:var(--ok);color:#fff;font-weight:700}
 .row2 .del{color:var(--bad)}
-.err{color:var(--bad);min-height:1.2em;margin-top:8px}
+.err{color:var(--bad);font-weight:700;min-height:1.2em;margin-top:8px}
 .chk{display:flex;gap:8px;align-items:center;margin-top:12px}
 .chk input{width:22px;height:22px;accent-color:var(--ok)}
 :focus-visible{outline:3px solid var(--ok);outline-offset:2px}
@@ -150,7 +150,7 @@ function edit(k,id){
   <label for="t">Type</label><select id="t" onchange="subs()">${opts(ts.map(t=>t.n),cur.type)}</select>
   <div id="sw"><label for="s">Détail</label><select id="s"></select></div>
   <label for="l">Libellé (facultatif)</label><input type="text" id="l" value="${e(cur.label)}">
-  <label for="a">Montant (€)</label><input type="number" id="a" inputmode="decimal" step="0.01" min="0" value="${cur.amt}">
+  <label for="a">Montant (€)</label><input type="text" id="a" inputmode="decimal" autocomplete="off" placeholder="0,00" value="${String(cur.amt).replace('.',',')}">
   ${f?`<label for="j">Jour du prélèvement</label><input type="number" id="j" min="1" max="31" value="${cur.day}">`:`<label for="j">Date</label><input type="date" id="j" value="${cur.date}">`}
   <label for="b">Banque</label><select id="b">${opts(S.cfg.banks,cur.bank)}</select>
   ${cur.k=='inc'?`<div class="chk"><input type="checkbox" id="r" ${cur.rec?'checked':''}><label for="r" style="margin:0">Se répète chaque mois</label></div>`:''}
@@ -165,7 +165,7 @@ function subs(){
 }
 function ok(){
   const v=id=>document.getElementById(id);
-  const amt=parseFloat(String(v('a').value).replace(',','.'));
+  const amt=parseFloat(String(v('a').value).replace(/\s/g,'').replace(',','.'));
   if(!(amt>0))return v('er').textContent='Saisis un montant supérieur à 0.';
   if(!v('j').value)return v('er').textContent='Renseigne la date ou le jour.';
   const t=types(cur.k).find(x=>x.n==v('t').value);
